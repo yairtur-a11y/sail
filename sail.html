@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>יוצאים לשייט?</title>
 <!-- אייפון: אייקון ופתיחה במסך מלא אחרי "הוסף למסך הבית" -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -92,7 +92,7 @@
   /* מסך צר (אייפון): עמודה אחת – חלון, תחזית, ציר שעות, פירוט */
   @media (max-width: 799px) {
     .wrap { padding: calc(12px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
-    header { padding-top: 48px; } /* מתחת לאפקט הדהייה של האייפון בראש המסך, שהכותרת לא תיחתך */
+    header { padding-top: 24px; } /* קצת אוויר מעל הכותרת; הדף לא נכנס מתחת לשורת הסטטוס */
     h1 { font-size: 18px; line-height: 1.4; }
     header a { font-size: 13px; }
     .top, .main { grid-template-columns: 1fr; }
