@@ -120,6 +120,8 @@
 const LAT = 32.09, LON = 34.74;
 const DAY_START_HOUR = 6, DAY_END_HOUR = 18;
 const FORECAST_DAYS = 5;
+const WEATHER_MODEL = 'ecmwf_ifs';  // מודל הרוח – ECMWF, כמו ברירת המחדל של Windy
+const WEATHER_MODEL_NAME = 'ECMWF';
 
 const WIND_CALM = 1;          // קשר: עד – שקט מוחלט, ציון נמוך
 const WIND_LIGHT = 3;         // קשר: מ-WIND_CALM עד כאן הציון עולה מ-2 ל-6
@@ -228,7 +230,7 @@ function cloudIcon(c) { return c < CLOUD_PARTLY ? '☀️' : c > CLOUD_OVERCAST 
 
 // ===== נתונים =====
 const COMMON = `latitude=${LAT}&longitude=${LON}&timezone=Asia%2FJerusalem&forecast_days=${FORECAST_DAYS}`;
-const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover`;
+const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover&models=${WEATHER_MODEL}`;
 const MARINE_URL = `https://marine-api.open-meteo.com/v1/marine?${COMMON}&hourly=wave_height,wave_period`;
 
 async function fetchJson(u) {
@@ -344,7 +346,7 @@ function nowCard() {
       <div><span class="lbl">מחזור גל</span>${val(!h.missing.includes('מחזור גל'), h.period != null && r0(+h.period), 'שניות')}</div>
     </div>
     <div class="foot">
-      <span>הנתונים נמשכו ב־${hhmm(state.fetchedAt)}</span>
+      <span>הנתונים נמשכו ב־${hhmm(state.fetchedAt)} · מודל ${WEATHER_MODEL_NAME}</span>
       <button class="btn" id="refresh" data-act="refresh" ${state.loading ? 'disabled' : ''}>${state.loading ? 'מרענן…' : 'רענון'}</button>
     </div>
   </section>`;
