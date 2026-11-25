@@ -78,6 +78,12 @@
   .tl-row .time small { color: var(--accent); font-weight: 600; font-size: 11px; }
   .tl-row small { display: block; color: var(--muted); font-size: 12px; }
   .miss { color: var(--red); font-size: 12px; }
+  .tl-row.dark { background: #eceff3; }
+  .tl-row .time small.sun { color: var(--muted); font-weight: 400; }
+  .cert { margin: 8px 0 0; color: #8a6400; font-size: 13px; }
+  .cert.ok { color: var(--green); }
+  .cert-s { display: block; color: #8a6400; font-size: 11px; margin-top: 2px; }
+  .models { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
 
   .facts { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
   .facts dt { color: var(--muted); }
@@ -150,7 +156,19 @@ const GREEN_FROM = 7;         // ציון 7+ ירוק
 const YELLOW_FROM = 4;        // ציון 4-6 צהוב, מתחת אדום
 
 const WINDOW_MIN_SCORE = 7;   // חלון מועדף: הציון הנמוך בחלון חייב להיות לפחות זה
-const WINDOW_DEFAULT_HOURS = 2;
+const WINDOW_DEFAULT_HOURS = 2;  // החלון המועדף כולל רק שעות שכולן בין הזריחה לשקיעה
+
+// ודאות: משווים את ECMWF למודלים נוספים
+// gusts: false = לא משווים משבים (המשבים של GFS כאן לא אמינים – לעתים נמוכים מהרוח עצמה)
+const COMPARE_MODELS = { icon_seamless: { name: 'ICON', gusts: true }, gfs_seamless: { name: 'GFS', gusts: false } };
+const CERT_WIND_SPREAD = 5;   // קשר: פער רוח בין המודלים מעל זה – "המודלים חלוקים"
+const CERT_GUST_SPREAD = 8;   // קשר: פער משבים בין המודלים מעל זה – "המודלים חלוקים"
+
+// כניסה למרינת תל אביב: גלים שמגיעים מהגזרה הזאת קשים בכניסה (מעלות, מאיפה הגל מגיע)
+const ENTRANCE_HARD_FROM = 250;  // מערב-דרום-מערב
+const ENTRANCE_HARD_TO = 340;    // צפון-צפון-מערב
+const ENTRANCE_MIN_WAVE = 0.6;   // מ': מגובה זה גל מהגזרה הקשה מוריד מהציון
+const ENTRANCE_PENALTY = 1;
 
 // ===== לוגיקה =====
 function lerp(x, x0, x1, y0, y1) { return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
@@ -176,9 +194,21 @@ function score(h) {
   if (THUNDER_CODES.includes(h.code)) return 1;
   let s = windScore(h.wind);
   if (h.wave != null) s = Math.min(s, waveScore(h.wave, h.period));
+  if (entranceHard(h)) s -= ENTRANCE_PENALTY;
   if (h.temp < TEMP_COLD || h.temp > TEMP_HOT) s -= TEMP_PENALTY;
   if (h.gust > GUST_LIMIT) s = Math.min(s, GUST_MAX_SCORE);
   return Math.max(1, Math.min(10, Math.round(s)));
+}
+
+const num = x => typeof x === 'number' && isFinite(x);
+
+// גל מהגזרה הקשה, בגובה שמורגש בכניסה למרינה
+function entranceHard(h) {
+  if (!num(h.waveDir) || !num(h.wave) || h.wave < ENTRANCE_MIN_WAVE) return false;
+  const d = h.waveDir;
+  return ENTRANCE_HARD_FROM <= ENTRANCE_HARD_TO
+    ? d >= ENTRANCE_HARD_FROM && d <= ENTRANCE_HARD_TO
+    : d >= ENTRANCE_HARD_FROM || d <= ENTRANCE_HARD_TO;
 }
 
 // נתוני ים תקינים? אם חסר גובה גל או מחזור גל – אין ציון לשעה
@@ -207,6 +237,7 @@ function reasons(h) {
     else add('no', `גלים גבוהים (${wv} מ')`);
   }
   if (!h.missing.includes('מחזור גל') && h.period < WAVE_PERIOD_SHORT) add('meh', `גל קצר וקופצני (${h.period.toFixed(1)} שנ')`);
+  if (entranceHard(h)) add('meh', `גלים מ${dirName(h.waveDir)} – קשה יותר בכניסה למרינה`);
   if (h.temp < TEMP_COLD) add('meh', `קר (${Math.round(h.temp)}°)`);
   else if (h.temp > TEMP_HOT) add('meh', `חם מאוד (${Math.round(h.temp)}°)`);
   return r;
@@ -225,13 +256,14 @@ function shortVerdict(s) { return s >= GREEN_FROM ? 'סבבה' : s >= YELLOW_FRO
 const DIRS = ['צפון', 'צפון-מזרח', 'מזרח', 'דרום-מזרח', 'דרום', 'דרום-מערב', 'מערב', 'צפון-מערב'];
 function dirName(deg) { return DIRS[Math.round(deg / 45) % 8]; }
 // חץ בכיוון זרימת הרוח: רוח מצפון (0°) → חץ למטה
-function windArrow(deg) { return `<span class="arrow" style="transform:rotate(${deg}deg)" title="רוח מ${dirName(deg)}">↓</span>`; }
+function windArrow(deg, what = 'רוח') { return `<span class="arrow" style="transform:rotate(${deg}deg)" title="${what} מ${dirName(deg)}">↓</span>`; }
 function cloudIcon(c) { return c < CLOUD_PARTLY ? '☀️' : c > CLOUD_OVERCAST ? '☁️' : '⛅'; }
 
 // ===== נתונים =====
 const COMMON = `latitude=${LAT}&longitude=${LON}&timezone=Asia%2FJerusalem&forecast_days=${FORECAST_DAYS}`;
-const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover&models=${WEATHER_MODEL}`;
-const MARINE_URL = `https://marine-api.open-meteo.com/v1/marine?${COMMON}&hourly=wave_height,wave_period`;
+const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover&daily=sunrise,sunset&models=${WEATHER_MODEL}`;
+const MARINE_URL = `https://marine-api.open-meteo.com/v1/marine?${COMMON}&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_direction,swell_wave_period`;
+const COMPARE_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=wind_speed_10m,wind_gusts_10m&models=${Object.keys(COMPARE_MODELS).join(',')}`;  // models = המפתחות של COMPARE_MODELS
 
 async function fetchJson(u) {
   const r = await fetch(u);
@@ -239,16 +271,33 @@ async function fetchJson(u) {
   return r.json();
 }
 
-// הרוח חובה; אם התחזית הימית נכשלת – ממשיכים בלי גלים
+// שעה באור יום? light = כולה בין הזריחה לשקיעה, dark = כולה בחושך, twilight = הזריחה/השקיעה בתוכה
+function daylight(t, sun) {
+  const day = sun[t.slice(0, 10)];
+  if (!day) return { light: 'light' };
+  const end = t.slice(0, 11) + String(hourOf(t) + 1).padStart(2, '0') + ':00';
+  if (t >= day.set || end <= day.rise) return { light: 'dark', sun: day };
+  if (t >= day.rise && end <= day.set) return { light: 'light', sun: day };
+  return { light: 'twilight', sun: day, edge: t < day.rise ? 'rise' : 'set' };
+}
+
+// הרוח חובה; אם התחזית הימית או השוואת המודלים נכשלות – ממשיכים בלעדיהן
 async function load() {
-  const [wr, mr] = await Promise.allSettled([fetchJson(WEATHER_URL), fetchJson(MARINE_URL)]);
+  const [wr, mr, cr] = await Promise.allSettled([fetchJson(WEATHER_URL), fetchJson(MARINE_URL), fetchJson(COMPARE_URL)]);
   if (wr.status === 'rejected') throw wr.reason;
   const w = wr.value;
   const m = mr.status === 'fulfilled' && mr.value && mr.value.hourly ? mr.value.hourly : null;
+  const c = cr.status === 'fulfilled' && cr.value && cr.value.hourly ? cr.value.hourly : null;
   const marine = {};
+  const col = (k, i) => (m[k] || [])[i];
   if (m) (m.time || []).forEach((t, i) => marine[t] = {
-    wave: (m.wave_height || [])[i], period: (m.wave_period || [])[i] });
-  const hours = w.hourly.time.map((t, i) => finalize({
+    wave: col('wave_height', i), period: col('wave_period', i), waveDir: col('wave_direction', i),
+    swell: col('swell_wave_height', i), swellDir: col('swell_wave_direction', i), swellPeriod: col('swell_wave_period', i) });
+  const cmpIdx = {};
+  if (c) (c.time || []).forEach((t, i) => cmpIdx[t] = i);
+  const sun = {};
+  if (w.daily) w.daily.time.forEach((d, i) => sun[d] = { rise: w.daily.sunrise[i], set: w.daily.sunset[i] });
+  const hours = w.hourly.time.map((t, i) => finalize(Object.assign({
     time: t,
     temp: w.hourly.temperature_2m[i],
     wind: w.hourly.wind_speed_10m[i],
@@ -256,10 +305,17 @@ async function load() {
     dir: w.hourly.wind_direction_10m[i],
     code: w.hourly.weather_code[i],
     cloud: w.hourly.cloud_cover[i],
-    wave: marine[t] ? marine[t].wave : null,
-    period: marine[t] ? marine[t].period : null,
-  }));
-  return { hours, marineFailed: !m };
+    models: [{ name: WEATHER_MODEL_NAME, wind: w.hourly.wind_speed_10m[i], gust: w.hourly.wind_gusts_10m[i] }].concat(
+      t in cmpIdx ? Object.entries(COMPARE_MODELS).map(([k, cfg]) => ({ name: cfg.name,
+        wind: (c['wind_speed_10m_' + k] || [])[cmpIdx[t]], gust: cfg.gusts ? (c['wind_gusts_10m_' + k] || [])[cmpIdx[t]] : null })).filter(x => num(x.wind)) : []),
+  }, marine[t] || { wave: null, period: null }, daylight(t, sun))));
+  // ודאות: האם המודלים חלוקים לגבי הרוח או המשבים בשעה הזאת
+  hours.forEach(h => {
+    if (h.models.length < 2) { h.disagree = null; return; }
+    const spread = k => { const v = h.models.map(x => x[k]).filter(num); return v.length < 2 ? 0 : Math.max(...v) - Math.min(...v); };
+    h.disagree = spread('wind') > CERT_WIND_SPREAD || spread('gust') > CERT_GUST_SPREAD;
+  });
+  return { hours, marineFailed: !m, compareFailed: !c };
 }
 
 // ===== מצב =====
@@ -308,6 +364,7 @@ function bestWindow(n) {
       const seg = list.slice(i, i + n);
       if (seg[0].time <= now) continue;
       if (seg.some(h => h.score == null)) continue;
+      if (seg.some(h => h.light !== 'light')) continue;   // רק באור יום
       if (hourOf(seg[n - 1].time) - hourOf(seg[0].time) !== n - 1) continue;
       const min = Math.min(...seg.map(h => h.score));
       const avg = seg.reduce((a, h) => a + h.score, 0) / n;
@@ -330,6 +387,24 @@ function badge(h, long) {
   return `<span class="badge b-${color(h.score)}">${h.score} · ${long ? verdict(h.score) : shortVerdict(h.score)}</span>`;
 }
 function missingText(h) { return 'חסר: ' + h.missing.join(' ו'); }
+const clock = iso => iso.slice(11, 16);
+// סימון קצר לשורה בציר: חושך / זריחה / שקיעה בתוך השעה
+function sunMark(h) {
+  if (h.light === 'dark') return '<small class="sun">🌙 חושך</small>';
+  if (h.light === 'twilight') return `<small class="sun">${h.edge === 'rise' ? '🌄 ' + clock(h.sun.rise) : '🌅 ' + clock(h.sun.set)}</small>`;
+  return '';
+}
+function sunNote(h) {
+  if (!h.sun) return '';
+  if (h.light === 'dark') return `<p class="note">🌙 בשעה הזאת חשוך (זריחה ${clock(h.sun.rise)}, שקיעה ${clock(h.sun.set)}). היא לא נכללת בחלון המועדף.</p>`;
+  if (h.light === 'twilight') return `<p class="note">${h.edge === 'rise' ? '🌄 הזריחה' : '🌅 השקיעה'} ב־${clock(h.edge === 'rise' ? h.sun.rise : h.sun.set)}, באמצע השעה הזאת. היא לא נכללת בחלון המועדף.</p>`;
+  return '';
+}
+function certLine(h) {
+  if (h.disagree == null) return '';
+  return h.disagree ? '<p class="cert">⚠ המודלים חלוקים לגבי השעה הזאת. כדאי לבדוק שוב קרוב יותר למועד.</p>'
+                    : '<p class="cert ok">✓ המודלים מסכימים</p>';
+}
 
 function nowCard() {
   const key = currentKey();
@@ -339,6 +414,7 @@ function nowCard() {
   return `<section class="card">
     <div class="row-top"><h2>תחזית ל־${h.time.slice(11)}</h2>${badge(h, true)}</div>
     ${h.missing.length ? `<p class="warn">${missingText(h)}</p>` : ''}
+    ${h.disagree ? certLine(h) : ''}
     <div class="big">
       <div><span class="lbl">רוח</span><span class="val">${windArrow(h.dir)} ${r0(h.wind)}</span><span class="unit">קשר, מ${dirName(h.dir)}</span></div>
       <div><span class="lbl">משבים</span><span class="val">${r0(h.gust)}</span><span class="unit">קשר</span></div>
@@ -359,7 +435,7 @@ function windowCard() {
   let body;
   if (!w) {
     body = `<div class="win-when">לא נמצא חלון מתאים</div>
-      <p class="win-why">אין ב־${FORECAST_DAYS} הימים הקרובים חלון של ${labels[state.winN]} (בין ${pad(DAY_START_HOUR)} ל־${pad(DAY_END_HOUR)}) שבו כל השעות בציון ${WINDOW_MIN_SCORE} ומעלה ועם נתוני ים מלאים.</p>`;
+      <p class="win-why">אין ב־${FORECAST_DAYS} הימים הקרובים חלון של ${labels[state.winN]} באור יום שבו כל השעות בציון ${WINDOW_MIN_SCORE} ומעלה ועם נתוני ים מלאים.</p>`;
   } else {
     const s = w.seg, start = s[0], end = hourOf(s[s.length - 1].time) + 1;
     body = `<div class="win-when">${dayName(start.time.slice(0, 10), true)} · <span dir="ltr">${start.time.slice(11)}–${pad(end)}</span></div>
@@ -371,6 +447,8 @@ function windowCard() {
           <small>מחזור ${range(s.map(h => h.period), r0)} שנ'</small></div>
       </div>
       <p class="win-why">ציון מינימלי בחלון: ${w.min}/10</p>
+      ${s.some(h => h.disagree) ? '<p class="cert">⚠ המודלים חלוקים בחלק מהשעות בחלון. כדאי לבדוק שוב קרוב יותר למועד.</p>'
+        : s.every(h => h.disagree === false) ? '<p class="cert ok">✓ המודלים מסכימים לגבי החלון</p>' : ''}
       <button class="linkbtn" id="show-win" data-act="show-win" data-t="${start.time}">הצג בציר השעות</button>`;
   }
   return `<section class="card"><div class="row-top"><h2>החלון המועדף</h2><div class="seg" role="group" aria-label="אורך החלון">${seg}</div></div>${body}</section>`;
@@ -383,7 +461,7 @@ function waveCell(h) {
     if (!h.missing.includes('מחזור גל')) parts.push(`${r0(h.period)} שנ'`);
     return `${parts.join(' · ')}<span class="miss" style="display:block">${missingText(h)}</span>`;
   }
-  return `${r1(h.wave)} מ'<small>${r0(h.period)} שנ'</small>`;
+  return `${r1(h.wave)} מ' ${num(h.waveDir) ? windArrow(h.waveDir, 'גל') : ''}<small>${r0(h.period)} שנ'</small>`;
 }
 
 function timeline() {
@@ -399,10 +477,10 @@ function timeline() {
   const toggle = pastN ? `<button class="showpast" id="toggle-past" data-act="past" aria-expanded="${state.showPast}">` +
     (state.showPast ? 'הסתר שעות קודמות' : `הצג שעות קודמות (${pastN})`) + '</button>' : '';
   const rows = shown.map(h => {
-    const cls = [h.time < now ? 'past' : '', h.time === now ? 'now' : '', h.time === state.selTime ? 'sel' : ''].join(' ');
+    const cls = [h.time < now ? 'past' : '', h.time === now ? 'now' : '', h.time === state.selTime ? 'sel' : '', h.light === 'dark' ? 'dark' : ''].join(' ');
     return `<button class="tl-row ${cls}" id="hour-${h.time}" data-act="hour" data-t="${h.time}" ${h.time === state.selTime ? 'aria-current="true"' : ''}>
-      <span class="time"><b>${h.time.slice(11)}</b>${h.time === now ? '<small>עכשיו</small>' : ''}</span>
-      <span>${badge(h)}</span>
+      <span class="time"><b>${h.time.slice(11)}</b>${h.time === now ? '<small>עכשיו</small>' : ''}${sunMark(h)}</span>
+      <span>${badge(h)}${h.disagree ? '<small class="cert-s">⚠ חלוקים</small>' : ''}</span>
       <span>${windArrow(h.dir)} ${r0(h.wind)}</span>
       <span>${r0(h.gust)}</span>
       <span>${waveCell(h)}</span>
@@ -426,15 +504,22 @@ function detail() {
     <div class="row-top"><h2>${dayName(h.time.slice(0, 10), true)} · ${h.time.slice(11)}</h2>${badge(h, true)}</div>
     ${h.time < now ? '<p class="note">השעה הזאת כבר עברה.</p>' : ''}
     ${h.missing.length ? `<p class="warn">${missingText(h)}. לשעה הזאת אין ציון והיא לא נכללת בחלון המועדף.</p>` : ''}
+    ${sunNote(h)}
+    ${certLine(h)}
     <dl class="facts">
       <dt>רוח</dt><dd>${windArrow(h.dir)} ${r0(h.wind)} קשר, מ${dirName(h.dir)}</dd>
       <dt>משבים</dt><dd>${r0(h.gust)} קשר</dd>
       <dt>גובה גל</dt><dd>${h.missing.includes('גובה גל') ? '<span class="miss">חסר</span>' : r1(h.wave) + ' מטר'}</dd>
       <dt>מחזור גל</dt><dd>${h.missing.includes('מחזור גל') ? '<span class="miss">חסר</span>' : r0(h.period) + ' שניות'}</dd>
+      ${num(h.waveDir) ? `<dt>כיוון גל</dt><dd>${windArrow(h.waveDir, 'גל')} מ${dirName(h.waveDir)}${entranceHard(h) ? ' <span class="cert-s" style="display:inline">· קשה בכניסה למרינה</span>' : ''}</dd>` : ''}
+      ${num(h.swell) ? `<dt>גל ים פתוח</dt><dd>${r1(h.swell)} מ'${num(h.swellDir) ? ', מ' + dirName(h.swellDir) : ''}${num(h.swellPeriod) ? ', ' + r0(h.swellPeriod) + ' שנ\'' : ''}</dd>` : ''}
       <dt>טמפרטורה</dt><dd>${r0(h.temp)}°</dd>
       <dt>עננות</dt><dd>${cloudIcon(h.cloud)} ${r0(h.cloud)}%</dd>
+      ${h.sun ? `<dt>אור יום</dt><dd>זריחה ${clock(h.sun.rise)} · שקיעה ${clock(h.sun.set)}</dd>` : ''}
     </dl>
     ${reasonsHtml(h)}
+    ${h.models.length > 1 ? `<p class="models">רוח/משבים לפי מודל: ${h.models.map(x => `${x.name} <span dir="ltr">${r0(x.wind)}/${num(x.gust) ? r0(x.gust) : '–'}</span>`).join(' · ')}</p>`
+      : state.compareFailed ? '<p class="models">השוואת המודלים לא נטענה כרגע.</p>' : ''}
   </section>`;
 }
 
@@ -453,8 +538,8 @@ async function refresh(initial) {
   state.loading = true;
   if (!initial) render();
   try {
-    const { hours, marineFailed } = await load();
-    Object.assign(state, { hours, marineFailed, days: groupDays(hours), fetchedAt: new Date(), refreshError: null });
+    const { hours, marineFailed, compareFailed } = await load();
+    Object.assign(state, { hours, marineFailed, compareFailed, days: groupDays(hours), fetchedAt: new Date(), refreshError: null });
     if (!state.hours.some(h => h.time === state.selTime)) defaultSelection();
   } catch (e) {
     state.refreshError = e.message;
