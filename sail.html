@@ -67,7 +67,9 @@
   .days button[aria-pressed="true"] small { color: #d7e9f5; }
 
   .tl { margin-top: 10px; display: grid; gap: 4px; }
-  .tl-row { display: grid; grid-template-columns: 52px 86px 1fr 1fr 1.3fr; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+  .wx { display: inline-block; text-align: center; font-size: 20px; line-height: 1; }
+  .wx small { display: block; font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .tl-row { display: grid; grid-template-columns: 52px 30px 86px 1fr 1fr 1.3fr; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 8px; font-variant-numeric: tabular-nums; }
   .tl-head { font-size: 12px; color: var(--muted); padding-block: 0; }
   button.tl-row { width: 100%; border: 1px solid var(--line); background: var(--card); text-align: right; }
   button.tl-row:hover { border-color: #b7c4d0; }
@@ -108,7 +110,8 @@
     .big { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .win-when { font-size: 22px; }
     .win-stats .v { font-size: 17px; }
-    .tl-row { grid-template-columns: 44px 80px 0.8fr 0.8fr 1.3fr; gap: 4px; padding-inline: 6px; font-size: 14px; }
+    .tl-row { grid-template-columns: 44px 24px 78px 0.7fr 0.7fr 1.3fr; gap: 4px; padding-inline: 6px; font-size: 14px; }
+    .wx { font-size: 17px; }
     .badge { padding: 2px 7px; font-size: 12px; }
   }
 </style>
@@ -272,7 +275,30 @@ const DIRS = ['צפון', 'צפון-מזרח', 'מזרח', 'דרום-מזרח', 
 function dirName(deg) { return DIRS[Math.round(deg / 45) % 8]; }
 // חץ בכיוון זרימת הרוח: רוח מצפון (0°) → חץ למטה
 function windArrow(deg, what = 'רוח') { return `<span class="arrow" style="transform:rotate(${deg}deg)" title="${what} מ${dirName(deg)}">↓</span>`; }
-function cloudIcon(c) { return c < CLOUD_PARTLY ? '☀️' : c > CLOUD_OVERCAST ? '☁️' : '⛅'; }
+// סמליל מזג אוויר לשעה: לפי קוד מזג האוויר (WMO), עננות, חום ולילה
+const HOT_DAY = 30;           // °C: מעל זה ביום בהיר – "שמש חזקה"
+const WX_CODES = [
+  [[95, 96, 99], '⛈️', 'סופת רעמים'],
+  [[65, 67, 82], '🌧️', 'גשם חזק', true],
+  [[61, 63, 66, 80, 81], '🌧️', 'גשם'],
+  [[51, 53, 55, 56, 57], '🌦️', 'טפטוף'],
+  [[71, 73, 75, 77, 85, 86], '🌨️', 'שלג'],
+  [[45, 48], '🌫️', 'ערפל'],
+];
+function weather(h) {
+  const hit = WX_CODES.find(([codes]) => codes.includes(h.code));
+  if (hit) return { icon: hit[1], label: hit[2], heavy: !!hit[3] };
+  const night = h.light === 'dark';
+  if (h.cloud > CLOUD_OVERCAST) return { icon: '☁️', label: 'מעונן' };
+  if (h.cloud >= CLOUD_PARTLY) return night ? { icon: '☁️', label: 'מעונן חלקית' } : { icon: '⛅', label: 'מעונן חלקית' };
+  if (night) return { icon: '🌙', label: 'לילה בהיר' };
+  if (h.temp >= HOT_DAY) return { icon: '🔆', label: 'שמש חזקה, חם' };
+  return { icon: '☀️', label: 'בהיר' };
+}
+function wxIcon(h) {
+  const w = weather(h);
+  return `<span class="wx" title="${w.label}" aria-label="${w.label}">${w.icon}${w.heavy ? '<small>חזק</small>' : ''}</span>`;
+}
 
 // ===== נתונים =====
 const COMMON = `latitude=${LAT}&longitude=${LON}&timezone=Asia%2FJerusalem&forecast_days=${FORECAST_DAYS}`;
@@ -430,7 +456,7 @@ function nowCard() {
   const val = (ok, v, unit) => ok ? `<span class="val">${v}</span><span class="unit">${unit}</span>`
                                   : `<span class="val">—</span><span class="unit miss">חסר</span>`;
   return `<section class="card">
-    <div class="row-top"><h2>תחזית ל־${h.time.slice(11)}</h2>${badge(h, true)}</div>
+    <div class="row-top"><h2>תחזית ל־${h.time.slice(11)} ${wxIcon(h)}</h2>${badge(h, true)}</div>
     ${h.missing.length ? `<p class="warn">${missingText(h)}</p>` : ''}
     ${h.disagree ? certLine(h) : ''}
     <div class="big">
@@ -498,6 +524,7 @@ function timeline() {
     const cls = [h.time < now ? 'past' : '', h.time === now ? 'now' : '', h.time === state.selTime ? 'sel' : '', h.light === 'dark' ? 'dark' : ''].join(' ');
     return `<button class="tl-row ${cls}" id="hour-${h.time}" data-act="hour" data-t="${h.time}" ${h.time === state.selTime ? 'aria-current="true"' : ''}>
       <span class="time"><b>${h.time.slice(11)}</b>${h.time === now ? '<small>עכשיו</small>' : ''}${sunMark(h)}</span>
+      ${wxIcon(h)}
       <span>${badge(h)}${h.disagree ? '<small class="cert-s">⚠ חלוקים</small>' : ''}${num(h.rainProb) && h.rainProb >= RAIN_PROB_HIGH ? `<small class="wx-s">🌧 ${Math.round(h.rainProb)}%</small>` : ''}${num(h.vis) && h.vis < VIS_POOR ? `<small class="wx-s">🌫 ${km(h.vis)} ק"מ</small>` : ''}</span>
       <span>${windArrow(h.dir)} ${r0(h.wind)}</span>
       <span>${r0(h.gust)}</span>
@@ -507,7 +534,7 @@ function timeline() {
   return `<section class="card">
     <div class="days" role="group" aria-label="בחירת יום">${tabs}</div>
     <div class="tl">
-      <div class="tl-row tl-head"><span>שעה</span><span>ציון</span><span>רוח (קשר)</span><span>משבים</span><span>גלים</span></div>
+      <div class="tl-row tl-head"><span>שעה</span><span></span><span>ציון</span><span>רוח (קשר)</span><span>משבים</span><span>גלים</span></div>
       ${toggle}
       ${rows}
     </div>
@@ -533,7 +560,8 @@ function detail() {
       ${num(h.swell) ? `<dt>גל ים פתוח</dt><dd>${r1(h.swell)} מ'${num(h.swellDir) ? ', מ' + dirName(h.swellDir) : ''}${num(h.swellPeriod) ? ', ' + r0(h.swellPeriod) + ' שנ\'' : ''}</dd>` : ''}
       <dt>טמפרטורה</dt><dd>${r0(h.temp)}°</dd>
       ${num(h.sst) ? `<dt>טמפ' מים</dt><dd>${r0(h.sst)}°${h.sst < SEA_COLD ? ' <span class="cert-s" style="display:inline">· מים קרים, כדאי ציוד מתאים</span>' : ''}</dd>` : ''}
-      <dt>עננות</dt><dd>${cloudIcon(h.cloud)} ${r0(h.cloud)}%</dd>
+      <dt>מזג אוויר</dt><dd>${weather(h).icon} ${weather(h).label}</dd>
+      <dt>עננות</dt><dd>${r0(h.cloud)}%</dd>
       ${num(h.rainProb) ? `<dt>גשם</dt><dd>${r0(h.rainProb)}% סיכוי${num(h.rain) && h.rain > 0 ? ` · ${h.rain.toFixed(1)} מ"מ` : ''}</dd>` : ''}
       ${num(h.vis) ? `<dt>ראות</dt><dd>${km(h.vis)} ק"מ</dd>` : ''}
       ${h.sun ? `<dt>אור יום</dt><dd>זריחה ${clock(h.sun.rise)} · שקיעה ${clock(h.sun.set)}</dd>` : ''}
