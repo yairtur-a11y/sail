@@ -92,7 +92,8 @@
   /* מסך צר (אייפון): עמודה אחת – חלון, תחזית, ציר שעות, פירוט */
   @media (max-width: 799px) {
     .wrap { padding: calc(12px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
-    h1 { font-size: 18px; }
+    header { padding-top: 24px; } /* שורה אחת למטה, שהכותרת לא תיחתך באייפון */
+    h1 { font-size: 18px; line-height: 1.4; }
     header a { font-size: 13px; }
     .top, .main { grid-template-columns: 1fr; }
     .side { position: static; }
