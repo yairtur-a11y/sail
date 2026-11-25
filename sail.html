@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>יוצאים לשייט?</title>
+<!-- אייפון: אייקון ופתיחה במסך מלא אחרי "הוסף למסך הבית" -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="שייט">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eef2f5">
+<style>
+  :root {
+    --bg: #eef2f5; --card: #fff; --ink: #1b2733; --muted: #5d6b78; --line: #dde3e9; --accent: #0b5c8a;
+    --green: #1e7b3c; --yellow: #f3c437; --yellow-ink: #3b2d00; --red: #c0392b; --none: #e3e7eb; --none-ink: #4a5560;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, "Segoe UI", Arial, sans-serif; font-size: 15px; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+  h1 { font-size: 20px; margin: 0; }
+  a { color: var(--accent); }
+  h2 { font-size: 16px; margin: 0; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  .row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .top { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .main { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
+  .side { position: sticky; top: 16px; }
+
+  .badge { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .b-green { background: var(--green); color: #fff; }
+  .b-yellow { background: var(--yellow); color: var(--yellow-ink); }
+  .b-red { background: var(--red); color: #fff; }
+  .b-none { background: var(--none); color: var(--none-ink); }
+
+  .big { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+  .big .lbl { display: block; font-size: 12px; color: var(--muted); }
+  .big .val { display: block; font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .big .unit { display: block; font-size: 12px; color: var(--muted); }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .btn { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 5px 12px; }
+  .btn:disabled { opacity: .6; cursor: default; }
+
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: var(--card); padding: 5px 10px; font-size: 13px; }
+  .seg button + button { border-inline-start: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .win-when { font-size: 26px; font-weight: 700; margin-top: 12px; }
+  .win-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+  .win-stats .lbl { display: block; font-size: 12px; color: var(--muted); }
+  .win-stats .v { display: block; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .win-stats small { display: block; font-size: 12px; color: var(--muted); }
+  .showpast { border: 1px dashed var(--line); background: none; border-radius: 8px; padding: 6px; color: var(--accent); }
+  .win-why { margin: 6px 0 0; color: var(--muted); line-height: 1.5; }
+  .linkbtn { border: 0; background: none; color: var(--accent); padding: 0; margin-top: 8px; text-decoration: underline; }
+
+  .banner { background: #fff4d6; border: 1px solid #ecd28a; color: #5a4300; border-radius: 10px; padding: 10px 12px; }
+
+  .days { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .days button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 6px 12px; text-align: center; line-height: 1.3; }
+  .days button small { display: block; color: var(--muted); font-size: 12px; }
+  .days button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .days button[aria-pressed="true"] small { color: #d7e9f5; }
+
+  .tl { margin-top: 10px; display: grid; gap: 4px; }
+  .tl-row { display: grid; grid-template-columns: 52px 86px 1fr 1fr 1.3fr; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+  .tl-head { font-size: 12px; color: var(--muted); padding-block: 0; }
+  button.tl-row { width: 100%; border: 1px solid var(--line); background: var(--card); text-align: right; }
+  button.tl-row:hover { border-color: #b7c4d0; }
+  .tl-row.past { opacity: .45; }
+  .tl-row.now { border: 2px solid var(--accent); }
+  .tl-row.sel { background: #e6f0f7; border-color: var(--accent); }
+  .tl-row .time b { display: block; }
+  .tl-row .time small { color: var(--accent); font-weight: 600; font-size: 11px; }
+  .tl-row small { display: block; color: var(--muted); font-size: 12px; }
+  .miss { color: var(--red); font-size: 12px; }
+
+  .facts { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; font-weight: 600; }
+  .note { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+  .warn { margin: 8px 0 0; color: var(--red); }
+  .arrow { display: inline-block; font-weight: bold; line-height: 1; }
+  .why { list-style: none; padding: 0; margin: 12px 0 0; line-height: 1.7; }
+  .why .yes { color: var(--green); } .why .meh { color: #9a7400; } .why .no { color: var(--red); }
+  .err { color: var(--red); }
+
+  /* מסך צר (אייפון): עמודה אחת – חלון, תחזית, ציר שעות, פירוט */
+  @media (max-width: 799px) {
+    .wrap { padding: calc(12px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+    h1 { font-size: 18px; }
+    header a { font-size: 13px; }
+    .top, .main { grid-template-columns: 1fr; }
+    .side { position: static; }
+    .card { padding: 12px; }
+    .big { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .win-when { font-size: 22px; }
+    .win-stats .v { font-size: 17px; }
+    .tl-row { grid-template-columns: 44px 80px 0.8fr 0.8fr 1.3fr; gap: 4px; padding-inline: 6px; font-size: 14px; }
+    .badge { padding: 2px 7px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>⛵ יוצאים לשייט? מרינת תל אביב</h1>
+    <a href="https://ims.gov.il/he/coasts" target="_blank" rel="noopener">תחזית ואזהרות לחופי ישראל – השירות המטאורולוגי ↗</a>
+  </header>
+  <div id="app">טוען נתונים…</div>
+</div>
+
+<script>
+// ===== ספים (לשנות כאן) =====
+const LAT = 32.09, LON = 34.74;
+const DAY_START_HOUR = 6, DAY_END_HOUR = 18;
+const FORECAST_DAYS = 5;
+
+const WIND_CALM = 1;          // קשר: עד – שקט מוחלט, ציון נמוך
+const WIND_LIGHT = 3;         // קשר: מ-WIND_CALM עד כאן הציון עולה מ-2 ל-6
+const WIND_IDEAL_MIN = 8;     // קשר: מ-WIND_LIGHT עד כאן הציון עולה מ-6 ל-10; מכאן טווח אידיאלי
+const WIND_IDEAL_MAX = 15;    // קשר: סוף טווח אידיאלי
+const WIND_TOO_HIGH = 22;     // קשר: מעל – ציון נמוך
+const GUST_LIMIT = 25;        // קשר: משבים מעל – ציון מקסימלי GUST_MAX_SCORE
+const GUST_MAX_SCORE = 3;
+
+const WAVE_EXCELLENT = 0.8;   // מ': עד – מצוין
+const WAVE_TOO_HIGH = 1.5;    // מ': מעל – ציון נמוך
+const WAVE_PERIOD_SHORT = 5;  // שניות: מחזור קצר מזה מוריד
+const WAVE_PERIOD_PENALTY = 1;
+
+const TEMP_COLD = 12;         // °C: מתחת – מוריד
+const TEMP_HOT = 33;          // °C: מעל – מוריד
+const TEMP_PENALTY = 1;
+
+const LOW_SCORE = 2;          // הציון ל"רוח/גלים מחוץ לטווח"
+const THUNDER_CODES = [95, 96, 99];
+
+const CLOUD_PARTLY = 25;      // % עננות: מתחת – ☀️
+const CLOUD_OVERCAST = 70;    // % עננות: מעל – ☁️, ביניהם ⛅ (לתצוגה בלבד, לא משפיע על הציון)
+
+const GREEN_FROM = 7;         // ציון 7+ ירוק
+const YELLOW_FROM = 4;        // ציון 4-6 צהוב, מתחת אדום
+
+const WINDOW_MIN_SCORE = 7;   // חלון מועדף: הציון הנמוך בחלון חייב להיות לפחות זה
+const WINDOW_DEFAULT_HOURS = 2;
+
+// ===== לוגיקה =====
+function lerp(x, x0, x1, y0, y1) { return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+
+function windScore(w) {
+  if (w <= WIND_CALM || w > WIND_TOO_HIGH) return LOW_SCORE;
+  if (w < WIND_LIGHT) return lerp(w, WIND_CALM, WIND_LIGHT, LOW_SCORE, 6);
+  if (w < WIND_IDEAL_MIN) return lerp(w, WIND_LIGHT, WIND_IDEAL_MIN, 6, 10);
+  if (w > WIND_IDEAL_MAX) return lerp(w, WIND_IDEAL_MAX, WIND_TOO_HIGH, 10, 4);
+  return 10;
+}
+
+function waveScore(h, period) {
+  let s;
+  if (h <= WAVE_EXCELLENT) s = 10;
+  else if (h > WAVE_TOO_HIGH) s = LOW_SCORE;
+  else s = lerp(h, WAVE_EXCELLENT, WAVE_TOO_HIGH, 10, 4);
+  if (period != null && period < WAVE_PERIOD_SHORT) s -= WAVE_PERIOD_PENALTY;
+  return s;
+}
+
+function score(h) {
+  if (THUNDER_CODES.includes(h.code)) return 1;
+  let s = windScore(h.wind);
+  if (h.wave != null) s = Math.min(s, waveScore(h.wave, h.period));
+  if (h.temp < TEMP_COLD || h.temp > TEMP_HOT) s -= TEMP_PENALTY;
+  if (h.gust > GUST_LIMIT) s = Math.min(s, GUST_MAX_SCORE);
+  return Math.max(1, Math.min(10, Math.round(s)));
+}
+
+// נתוני ים תקינים? אם חסר גובה גל או מחזור גל – אין ציון לשעה
+function finalize(h) {
+  h.missing = [];
+  if (!(typeof h.wave === 'number' && isFinite(h.wave) && h.wave >= 0)) h.missing.push('גובה גל');
+  if (!(typeof h.period === 'number' && isFinite(h.period) && h.period > 0)) h.missing.push('מחזור גל');
+  h.score = h.missing.length ? null : score(h);
+  return h;
+}
+
+// הסבר: yes = למה כן, meh = מוריד קצת, no = למה לא
+function reasons(h) {
+  const r = [], w = Math.round(h.wind), add = (level, text) => r.push({ level, text });
+  if (THUNDER_CODES.includes(h.code)) add('no', 'סופת רעמים');
+  if (h.wind < WIND_LIGHT) add('no', `כמעט אין רוח (${w} קשר)`);
+  else if (h.wind < WIND_IDEAL_MIN) add('meh', `רוח קצת חלשה (${w} קשר)`);
+  else if (h.wind <= WIND_IDEAL_MAX) add('yes', `רוח טובה להפלגה (${w} קשר)`);
+  else if (h.wind <= WIND_TOO_HIGH) add('meh', `רוח חזקה (${w} קשר)`);
+  else add('no', `רוח חזקה מדי (${w} קשר)`);
+  if (h.gust > GUST_LIMIT) add('no', `משבים חזקים (${Math.round(h.gust)} קשר)`);
+  if (!h.missing.includes('גובה גל')) {
+    const wv = h.wave.toFixed(1);
+    if (h.wave <= WAVE_EXCELLENT) add('yes', `ים נוח (${wv} מ')`);
+    else if (h.wave <= WAVE_TOO_HIGH) add('meh', `גלים בינוניים (${wv} מ')`);
+    else add('no', `גלים גבוהים (${wv} מ')`);
+  }
+  if (!h.missing.includes('מחזור גל') && h.period < WAVE_PERIOD_SHORT) add('meh', `גל קצר וקופצני (${h.period.toFixed(1)} שנ')`);
+  if (h.temp < TEMP_COLD) add('meh', `קר (${Math.round(h.temp)}°)`);
+  else if (h.temp > TEMP_HOT) add('meh', `חם מאוד (${Math.round(h.temp)}°)`);
+  return r;
+}
+
+const MARK = { yes: '✓', meh: '−', no: '✗' };
+function reasonsHtml(h) {
+  return '<ul class="why">' + reasons(h).map(x =>
+    `<li class="${x.level}">${MARK[x.level]} ${x.text}</li>`).join('') + '</ul>';
+}
+
+function color(s) { return s >= GREEN_FROM ? 'green' : s >= YELLOW_FROM ? 'yellow' : 'red'; }
+function verdict(s) { return s >= GREEN_FROM ? 'סבבה לצאת' : s >= YELLOW_FROM ? 'גבולי' : 'לא היום'; }
+function shortVerdict(s) { return s >= GREEN_FROM ? 'סבבה' : s >= YELLOW_FROM ? 'גבולי' : 'לא היום'; }
+
+const DIRS = ['צפון', 'צפון-מזרח', 'מזרח', 'דרום-מזרח', 'דרום', 'דרום-מערב', 'מערב', 'צפון-מערב'];
+function dirName(deg) { return DIRS[Math.round(deg / 45) % 8]; }
+// חץ בכיוון זרימת הרוח: רוח מצפון (0°) → חץ למטה
+function windArrow(deg) { return `<span class="arrow" style="transform:rotate(${deg}deg)" title="רוח מ${dirName(deg)}">↓</span>`; }
+function cloudIcon(c) { return c < CLOUD_PARTLY ? '☀️' : c > CLOUD_OVERCAST ? '☁️' : '⛅'; }
+
+// ===== נתונים =====
+const COMMON = `latitude=${LAT}&longitude=${LON}&timezone=Asia%2FJerusalem&forecast_days=${FORECAST_DAYS}`;
+const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover`;
+const MARINE_URL = `https://marine-api.open-meteo.com/v1/marine?${COMMON}&hourly=wave_height,wave_period`;
+
+async function fetchJson(u) {
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// הרוח חובה; אם התחזית הימית נכשלת – ממשיכים בלי גלים
+async function load() {
+  const [wr, mr] = await Promise.allSettled([fetchJson(WEATHER_URL), fetchJson(MARINE_URL)]);
+  if (wr.status === 'rejected') throw wr.reason;
+  const w = wr.value;
+  const m = mr.status === 'fulfilled' && mr.value && mr.value.hourly ? mr.value.hourly : null;
+  const marine = {};
+  if (m) (m.time || []).forEach((t, i) => marine[t] = {
+    wave: (m.wave_height || [])[i], period: (m.wave_period || [])[i] });
+  const hours = w.hourly.time.map((t, i) => finalize({
+    time: t,
+    temp: w.hourly.temperature_2m[i],
+    wind: w.hourly.wind_speed_10m[i],
+    gust: w.hourly.wind_gusts_10m[i],
+    dir: w.hourly.wind_direction_10m[i],
+    code: w.hourly.weather_code[i],
+    cloud: w.hourly.cloud_cover[i],
+    wave: marine[t] ? marine[t].wave : null,
+    period: marine[t] ? marine[t].period : null,
+  }));
+  return { hours, marineFailed: !m };
+}
+
+// ===== מצב =====
+const state = { hours: [], days: {}, fetchedAt: null, marineFailed: false, loading: false,
+                refreshError: null, selDate: null, selTime: null, winN: WINDOW_DEFAULT_HOURS, showPast: false };
+
+function currentKey() {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jerusalem' }).slice(0, 13).replace(' ', 'T') + ':00';
+}
+function hhmm(d) { return d.toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }); }
+const hourOf = t => +t.slice(11, 13);
+
+function groupDays(hours) {
+  const days = {};
+  hours.forEach(h => {
+    const hr = hourOf(h.time);
+    if (hr >= DAY_START_HOUR && hr <= DAY_END_HOUR) (days[h.time.slice(0, 10)] ||= []).push(h);
+  });
+  return days;
+}
+
+function dayName(date, withWeekday) {
+  const d = new Date(date + 'T12:00:00Z'), today = currentKey().slice(0, 10);
+  const diff = Math.round((d - new Date(today + 'T12:00:00Z')) / 864e5);
+  const dm = `${d.getUTCDate()}.${d.getUTCMonth() + 1}`;
+  const wd = d.toLocaleDateString('he-IL', { timeZone: 'UTC', weekday: 'long' });
+  const rel = diff === 0 ? 'היום' : diff === 1 ? 'מחר' : null;
+  if (!withWeekday) return { name: rel || wd.replace('יום ', ''), dm };
+  return (rel ? rel + ', ' : '') + wd + ' ' + dm;
+}
+
+function defaultSelection() {
+  const now = currentKey();
+  const all = Object.values(state.days).flat();
+  const first = all.find(h => h.time >= now) || all[0];
+  state.selDate = first.time.slice(0, 10);
+  state.selTime = first.time;
+}
+
+// החלון המועדף: חלונות רצופים בשעות עתידיות, לפי הציון הנמוך ואז הממוצע
+function bestWindow(n) {
+  const now = currentKey();
+  let best = null;
+  for (const list of Object.values(state.days)) {
+    for (let i = 0; i + n <= list.length; i++) {
+      const seg = list.slice(i, i + n);
+      if (seg[0].time <= now) continue;
+      if (seg.some(h => h.score == null)) continue;
+      if (hourOf(seg[n - 1].time) - hourOf(seg[0].time) !== n - 1) continue;
+      const min = Math.min(...seg.map(h => h.score));
+      const avg = seg.reduce((a, h) => a + h.score, 0) / n;
+      if (!best || min > best.min || (min === best.min && avg > best.avg)) best = { seg, min, avg };
+    }
+  }
+  return best && best.min >= WINDOW_MIN_SCORE ? best : null;
+}
+
+// ===== תצוגה =====
+function range(vals, fmt) {
+  const a = Math.min(...vals), b = Math.max(...vals);
+  return fmt(a) === fmt(b) ? fmt(a) : `<span dir="ltr">${fmt(a)}–${fmt(b)}</span>`;
+}
+const r0 = x => String(Math.round(x)), r1 = x => x.toFixed(1);
+const pad = n => String(n).padStart(2, '0') + ':00';
+
+function badge(h, long) {
+  if (h.score == null) return `<span class="badge b-none">אין ציון</span>`;
+  return `<span class="badge b-${color(h.score)}">${h.score} · ${long ? verdict(h.score) : shortVerdict(h.score)}</span>`;
+}
+function missingText(h) { return 'חסר: ' + h.missing.join(' ו'); }
+
+function nowCard() {
+  const key = currentKey();
+  const h = state.hours.find(x => x.time === key) || state.hours[0];
+  const val = (ok, v, unit) => ok ? `<span class="val">${v}</span><span class="unit">${unit}</span>`
+                                  : `<span class="val">—</span><span class="unit miss">חסר</span>`;
+  return `<section class="card">
+    <div class="row-top"><h2>תחזית ל־${h.time.slice(11)}</h2>${badge(h, true)}</div>
+    ${h.missing.length ? `<p class="warn">${missingText(h)}</p>` : ''}
+    <div class="big">
+      <div><span class="lbl">רוח</span><span class="val">${windArrow(h.dir)} ${r0(h.wind)}</span><span class="unit">קשר, מ${dirName(h.dir)}</span></div>
+      <div><span class="lbl">משבים</span><span class="val">${r0(h.gust)}</span><span class="unit">קשר</span></div>
+      <div><span class="lbl">גובה גל</span>${val(!h.missing.includes('גובה גל'), h.wave != null && r1(+h.wave), 'מטר')}</div>
+      <div><span class="lbl">מחזור גל</span>${val(!h.missing.includes('מחזור גל'), h.period != null && r0(+h.period), 'שניות')}</div>
+    </div>
+    <div class="foot">
+      <span>הנתונים נמשכו ב־${hhmm(state.fetchedAt)}</span>
+      <button class="btn" id="refresh" data-act="refresh" ${state.loading ? 'disabled' : ''}>${state.loading ? 'מרענן…' : 'רענון'}</button>
+    </div>
+  </section>`;
+}
+
+function windowCard() {
+  const labels = { 1: 'שעה', 2: 'שעתיים', 3: '3 שעות' };
+  const seg = [1, 2, 3].map(n => `<button id="win-${n}" data-act="win" data-n="${n}" aria-pressed="${state.winN === n}">${labels[n]}</button>`).join('');
+  const w = bestWindow(state.winN);
+  let body;
+  if (!w) {
+    body = `<div class="win-when">לא נמצא חלון מתאים</div>
+      <p class="win-why">אין ב־${FORECAST_DAYS} הימים הקרובים חלון של ${labels[state.winN]} (בין ${pad(DAY_START_HOUR)} ל־${pad(DAY_END_HOUR)}) שבו כל השעות בציון ${WINDOW_MIN_SCORE} ומעלה ועם נתוני ים מלאים.</p>`;
+  } else {
+    const s = w.seg, start = s[0], end = hourOf(s[s.length - 1].time) + 1;
+    body = `<div class="win-when">${dayName(start.time.slice(0, 10), true)} · <span dir="ltr">${start.time.slice(11)}–${pad(end)}</span></div>
+      <div class="win-stats">
+        <div><span class="lbl">רוח</span><span class="v">${range(s.map(h => h.wind), r0)} קשר</span></div>
+        <div><span class="lbl">שיא משבים</span><span class="v">${r0(Math.max(...s.map(h => h.gust)))} קשר</span>
+          <small>משבים מעל ${GUST_LIMIT} קשר מורידים את הציון</small></div>
+        <div><span class="lbl">גלים</span><span class="v">${range(s.map(h => h.wave), r1)} מ'</span>
+          <small>מחזור ${range(s.map(h => h.period), r0)} שנ'</small></div>
+      </div>
+      <p class="win-why">ציון מינימלי בחלון: ${w.min}/10</p>
+      <button class="linkbtn" id="show-win" data-act="show-win" data-t="${start.time}">הצג בציר השעות</button>`;
+  }
+  return `<section class="card"><div class="row-top"><h2>החלון המועדף</h2><div class="seg" role="group" aria-label="אורך החלון">${seg}</div></div>${body}</section>`;
+}
+
+function waveCell(h) {
+  if (h.missing.length) {
+    const parts = [];
+    if (!h.missing.includes('גובה גל')) parts.push(`${r1(h.wave)} מ'`);
+    if (!h.missing.includes('מחזור גל')) parts.push(`${r0(h.period)} שנ'`);
+    return `${parts.join(' · ')}<span class="miss" style="display:block">${missingText(h)}</span>`;
+  }
+  return `${r1(h.wave)} מ'<small>${r0(h.period)} שנ'</small>`;
+}
+
+function timeline() {
+  const now = currentKey();
+  const tabs = Object.keys(state.days).map(date => {
+    const d = dayName(date);
+    return `<button id="day-${date}" data-act="day" data-date="${date}" aria-pressed="${date === state.selDate}">${d.name}<small>${d.dm}</small></button>`;
+  }).join('');
+  // בלשונית "היום" השעות שעברו מקופלות; בשאר הימים מוצגות כל השעות
+  const list = state.days[state.selDate] || [];
+  const pastN = state.selDate === now.slice(0, 10) ? list.filter(h => h.time < now).length : 0;
+  const shown = pastN && !state.showPast ? list.filter(h => h.time >= now) : list;
+  const toggle = pastN ? `<button class="showpast" id="toggle-past" data-act="past" aria-expanded="${state.showPast}">` +
+    (state.showPast ? 'הסתר שעות קודמות' : `הצג שעות קודמות (${pastN})`) + '</button>' : '';
+  const rows = shown.map(h => {
+    const cls = [h.time < now ? 'past' : '', h.time === now ? 'now' : '', h.time === state.selTime ? 'sel' : ''].join(' ');
+    return `<button class="tl-row ${cls}" id="hour-${h.time}" data-act="hour" data-t="${h.time}" ${h.time === state.selTime ? 'aria-current="true"' : ''}>
+      <span class="time"><b>${h.time.slice(11)}</b>${h.time === now ? '<small>עכשיו</small>' : ''}</span>
+      <span>${badge(h)}</span>
+      <span>${windArrow(h.dir)} ${r0(h.wind)}</span>
+      <span>${r0(h.gust)}</span>
+      <span>${waveCell(h)}</span>
+    </button>`;
+  }).join('');
+  return `<section class="card">
+    <div class="days" role="group" aria-label="בחירת יום">${tabs}</div>
+    <div class="tl">
+      <div class="tl-row tl-head"><span>שעה</span><span>ציון</span><span>רוח (קשר)</span><span>משבים</span><span>גלים</span></div>
+      ${toggle}
+      ${rows}
+    </div>
+  </section>`;
+}
+
+function detail() {
+  const h = state.hours.find(x => x.time === state.selTime);
+  if (!h) return '';
+  const now = currentKey();
+  return `<section class="card" id="detail">
+    <div class="row-top"><h2>${dayName(h.time.slice(0, 10), true)} · ${h.time.slice(11)}</h2>${badge(h, true)}</div>
+    ${h.time < now ? '<p class="note">השעה הזאת כבר עברה.</p>' : ''}
+    ${h.missing.length ? `<p class="warn">${missingText(h)}. לשעה הזאת אין ציון והיא לא נכללת בחלון המועדף.</p>` : ''}
+    <dl class="facts">
+      <dt>רוח</dt><dd>${windArrow(h.dir)} ${r0(h.wind)} קשר, מ${dirName(h.dir)}</dd>
+      <dt>משבים</dt><dd>${r0(h.gust)} קשר</dd>
+      <dt>גובה גל</dt><dd>${h.missing.includes('גובה גל') ? '<span class="miss">חסר</span>' : r1(h.wave) + ' מטר'}</dd>
+      <dt>מחזור גל</dt><dd>${h.missing.includes('מחזור גל') ? '<span class="miss">חסר</span>' : r0(h.period) + ' שניות'}</dd>
+      <dt>טמפרטורה</dt><dd>${r0(h.temp)}°</dd>
+      <dt>עננות</dt><dd>${cloudIcon(h.cloud)} ${r0(h.cloud)}%</dd>
+    </dl>
+    ${reasonsHtml(h)}
+  </section>`;
+}
+
+function render() {
+  const banners = [];
+  if (state.marineFailed) banners.push('תחזית הגלים לא נטענה. נתוני הרוח מוצגים, אבל בלי גלים אין ציון לשעות ואין חלון מועדף. נסו לרענן.');
+  if (state.refreshError) banners.push(`הרענון נכשל (${state.refreshError}). מוצגים הנתונים מ־${hhmm(state.fetchedAt)}.`);
+  document.getElementById('app').innerHTML = `<div style="display:grid;gap:14px">
+    ${banners.map(b => `<div class="banner">${b}</div>`).join('')}
+    <div class="top">${windowCard()}${nowCard()}</div>
+    <div class="main">${timeline()}<div class="side">${detail()}</div></div>
+  </div>`;
+}
+
+async function refresh(initial) {
+  state.loading = true;
+  if (!initial) render();
+  try {
+    const { hours, marineFailed } = await load();
+    Object.assign(state, { hours, marineFailed, days: groupDays(hours), fetchedAt: new Date(), refreshError: null });
+    if (!state.hours.some(h => h.time === state.selTime)) defaultSelection();
+  } catch (e) {
+    state.refreshError = e.message;
+  }
+  state.loading = false;
+  if (!state.fetchedAt) {
+    document.getElementById('app').innerHTML = `<p class="err">שגיאה בטעינת הנתונים: ${state.refreshError}</p>
+      <button class="btn" data-act="refresh" id="refresh">נסו שוב</button>`;
+    return;
+  }
+  render();
+}
+
+document.getElementById('app').addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const act = t.dataset.act;
+  if (act === 'refresh') { refresh(); return; }
+  if (act === 'day') {
+    state.selDate = t.dataset.date;
+    const list = state.days[state.selDate], now = currentKey();
+    state.selTime = (list.find(h => h.time >= now) || list[0]).time;
+  }
+  if (act === 'hour' || act === 'show-win') { state.selTime = t.dataset.t; state.selDate = t.dataset.t.slice(0, 10); }
+  if (act === 'win') state.winN = +t.dataset.n;
+  if (act === 'past') state.showPast = !state.showPast;
+  const focusId = act === 'show-win' ? 'hour-' + state.selTime : t.id;
+  render();
+  const f = document.getElementById(focusId);
+  if (f) f.focus({ preventScroll: true });
+  // במסך צר הפירוט נמצא מתחת לציר – גוללים אליו אחרי בחירת שעה
+  if ((act === 'hour' || act === 'show-win') && matchMedia('(max-width: 799px)').matches) {
+    document.getElementById('detail').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+});
+
+refresh(true);
+</script>
+</body>
+</html>
