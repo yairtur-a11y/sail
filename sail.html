@@ -83,6 +83,7 @@
   .cert { margin: 8px 0 0; color: #8a6400; font-size: 13px; }
   .cert.ok { color: var(--green); }
   .cert-s { display: block; color: #8a6400; font-size: 11px; margin-top: 2px; }
+  .wx-s { display: block; color: var(--accent); font-size: 11px; margin-top: 2px; }
   .models { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
 
   .facts { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
@@ -146,6 +147,13 @@ const TEMP_COLD = 12;         // °C: מתחת – מוריד
 const TEMP_HOT = 33;          // °C: מעל – מוריד
 const TEMP_PENALTY = 1;
 
+const RAIN_PROB_HIGH = 50;    // %: סיכוי לגשם מזה ומעלה – מוריד
+const RAIN_PENALTY = 1;
+const VIS_POOR = 4000;        // מטר: ראות מתחת לזה – מוריד מעט
+const VIS_FOG = 1000;         // מטר: ראות מתחת לזה (ערפל) – מוריד יותר
+const VIS_POOR_PENALTY = 1, VIS_FOG_PENALTY = 2;
+const SEA_COLD = 18;          // °C: מים קרים מזה – מסומן בפירוט (לא משפיע על הציון)
+
 const LOW_SCORE = 2;          // הציון ל"רוח/גלים מחוץ לטווח"
 const THUNDER_CODES = [95, 96, 99];
 
@@ -195,12 +203,16 @@ function score(h) {
   let s = windScore(h.wind);
   if (h.wave != null) s = Math.min(s, waveScore(h.wave, h.period));
   if (entranceHard(h)) s -= ENTRANCE_PENALTY;
+  if (num(h.rainProb) && h.rainProb >= RAIN_PROB_HIGH) s -= RAIN_PENALTY;
+  if (num(h.vis) && h.vis < VIS_FOG) s -= VIS_FOG_PENALTY;
+  else if (num(h.vis) && h.vis < VIS_POOR) s -= VIS_POOR_PENALTY;
   if (h.temp < TEMP_COLD || h.temp > TEMP_HOT) s -= TEMP_PENALTY;
   if (h.gust > GUST_LIMIT) s = Math.min(s, GUST_MAX_SCORE);
   return Math.max(1, Math.min(10, Math.round(s)));
 }
 
 const num = x => typeof x === 'number' && isFinite(x);
+const km = m => m >= 10000 ? String(Math.round(m / 1000)) : (m / 1000).toFixed(1);
 
 // גל מהגזרה הקשה, בגובה שמורגש בכניסה למרינה
 function entranceHard(h) {
@@ -238,6 +250,9 @@ function reasons(h) {
   }
   if (!h.missing.includes('מחזור גל') && h.period < WAVE_PERIOD_SHORT) add('meh', `גל קצר וקופצני (${h.period.toFixed(1)} שנ')`);
   if (entranceHard(h)) add('meh', `גלים מ${dirName(h.waveDir)} – קשה יותר בכניסה למרינה`);
+  if (num(h.rainProb) && h.rainProb >= RAIN_PROB_HIGH) add('meh', `סיכוי לגשם ${Math.round(h.rainProb)}%`);
+  if (num(h.vis) && h.vis < VIS_FOG) add('no', `ערפל – ראות ${km(h.vis)} ק"מ`);
+  else if (num(h.vis) && h.vis < VIS_POOR) add('meh', `ראות מוגבלת (${km(h.vis)} ק"מ)`);
   if (h.temp < TEMP_COLD) add('meh', `קר (${Math.round(h.temp)}°)`);
   else if (h.temp > TEMP_HOT) add('meh', `חם מאוד (${Math.round(h.temp)}°)`);
   return r;
@@ -261,8 +276,8 @@ function cloudIcon(c) { return c < CLOUD_PARTLY ? '☀️' : c > CLOUD_OVERCAST 
 
 // ===== נתונים =====
 const COMMON = `latitude=${LAT}&longitude=${LON}&timezone=Asia%2FJerusalem&forecast_days=${FORECAST_DAYS}`;
-const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover&daily=sunrise,sunset&models=${WEATHER_MODEL}`;
-const MARINE_URL = `https://marine-api.open-meteo.com/v1/marine?${COMMON}&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_direction,swell_wave_period`;
+const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover,precipitation_probability,precipitation,visibility&daily=sunrise,sunset&models=${WEATHER_MODEL}`;
+const MARINE_URL = `https://marine-api.open-meteo.com/v1/marine?${COMMON}&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_direction,swell_wave_period,sea_surface_temperature`;
 const COMPARE_URL = `https://api.open-meteo.com/v1/forecast?${COMMON}&wind_speed_unit=kn&hourly=wind_speed_10m,wind_gusts_10m&models=${Object.keys(COMPARE_MODELS).join(',')}`;  // models = המפתחות של COMPARE_MODELS
 
 async function fetchJson(u) {
@@ -292,7 +307,7 @@ async function load() {
   const col = (k, i) => (m[k] || [])[i];
   if (m) (m.time || []).forEach((t, i) => marine[t] = {
     wave: col('wave_height', i), period: col('wave_period', i), waveDir: col('wave_direction', i),
-    swell: col('swell_wave_height', i), swellDir: col('swell_wave_direction', i), swellPeriod: col('swell_wave_period', i) });
+    swell: col('swell_wave_height', i), swellDir: col('swell_wave_direction', i), swellPeriod: col('swell_wave_period', i), sst: col('sea_surface_temperature', i) });
   const cmpIdx = {};
   if (c) (c.time || []).forEach((t, i) => cmpIdx[t] = i);
   const sun = {};
@@ -305,6 +320,9 @@ async function load() {
     dir: w.hourly.wind_direction_10m[i],
     code: w.hourly.weather_code[i],
     cloud: w.hourly.cloud_cover[i],
+    rainProb: (w.hourly.precipitation_probability || [])[i],
+    rain: (w.hourly.precipitation || [])[i],
+    vis: (w.hourly.visibility || [])[i],
     models: [{ name: WEATHER_MODEL_NAME, wind: w.hourly.wind_speed_10m[i], gust: w.hourly.wind_gusts_10m[i] }].concat(
       t in cmpIdx ? Object.entries(COMPARE_MODELS).map(([k, cfg]) => ({ name: cfg.name,
         wind: (c['wind_speed_10m_' + k] || [])[cmpIdx[t]], gust: cfg.gusts ? (c['wind_gusts_10m_' + k] || [])[cmpIdx[t]] : null })).filter(x => num(x.wind)) : []),
@@ -480,7 +498,7 @@ function timeline() {
     const cls = [h.time < now ? 'past' : '', h.time === now ? 'now' : '', h.time === state.selTime ? 'sel' : '', h.light === 'dark' ? 'dark' : ''].join(' ');
     return `<button class="tl-row ${cls}" id="hour-${h.time}" data-act="hour" data-t="${h.time}" ${h.time === state.selTime ? 'aria-current="true"' : ''}>
       <span class="time"><b>${h.time.slice(11)}</b>${h.time === now ? '<small>עכשיו</small>' : ''}${sunMark(h)}</span>
-      <span>${badge(h)}${h.disagree ? '<small class="cert-s">⚠ חלוקים</small>' : ''}</span>
+      <span>${badge(h)}${h.disagree ? '<small class="cert-s">⚠ חלוקים</small>' : ''}${num(h.rainProb) && h.rainProb >= RAIN_PROB_HIGH ? `<small class="wx-s">🌧 ${Math.round(h.rainProb)}%</small>` : ''}${num(h.vis) && h.vis < VIS_POOR ? `<small class="wx-s">🌫 ${km(h.vis)} ק"מ</small>` : ''}</span>
       <span>${windArrow(h.dir)} ${r0(h.wind)}</span>
       <span>${r0(h.gust)}</span>
       <span>${waveCell(h)}</span>
@@ -514,7 +532,10 @@ function detail() {
       ${num(h.waveDir) ? `<dt>כיוון גל</dt><dd>${windArrow(h.waveDir, 'גל')} מ${dirName(h.waveDir)}${entranceHard(h) ? ' <span class="cert-s" style="display:inline">· קשה בכניסה למרינה</span>' : ''}</dd>` : ''}
       ${num(h.swell) ? `<dt>גל ים פתוח</dt><dd>${r1(h.swell)} מ'${num(h.swellDir) ? ', מ' + dirName(h.swellDir) : ''}${num(h.swellPeriod) ? ', ' + r0(h.swellPeriod) + ' שנ\'' : ''}</dd>` : ''}
       <dt>טמפרטורה</dt><dd>${r0(h.temp)}°</dd>
+      ${num(h.sst) ? `<dt>טמפ' מים</dt><dd>${r0(h.sst)}°${h.sst < SEA_COLD ? ' <span class="cert-s" style="display:inline">· מים קרים, כדאי ציוד מתאים</span>' : ''}</dd>` : ''}
       <dt>עננות</dt><dd>${cloudIcon(h.cloud)} ${r0(h.cloud)}%</dd>
+      ${num(h.rainProb) ? `<dt>גשם</dt><dd>${r0(h.rainProb)}% סיכוי${num(h.rain) && h.rain > 0 ? ` · ${h.rain.toFixed(1)} מ"מ` : ''}</dd>` : ''}
+      ${num(h.vis) ? `<dt>ראות</dt><dd>${km(h.vis)} ק"מ</dd>` : ''}
       ${h.sun ? `<dt>אור יום</dt><dd>זריחה ${clock(h.sun.rise)} · שקיעה ${clock(h.sun.set)}</dd>` : ''}
     </dl>
     ${reasonsHtml(h)}
